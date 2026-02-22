@@ -30,9 +30,15 @@ int32_t HIMCUL_PRF_SwitchOnPutHandler(uint8_t siid, uint8_t ciid, const uint8_t 
     g_switchIntState = switchIntState;
     
     if (g_switchIntState) {
-        servo_180_to_180();
+        esp_err_t servo_ret = servo_180_to_180();
+        if (servo_ret != ESP_OK) {
+            HIMCUL_LOGE("servo_180_to_180 failed, ret=%d", servo_ret);
+        }
     } else {
-        servo_180_to_0();
+        esp_err_t servo_ret = servo_180_to_0();
+        if (servo_ret != ESP_OK) {
+            HIMCUL_LOGE("servo_180_to_0 failed, ret=%d", servo_ret);
+        }
     }
     
     return HIMCUL_ProfileCharAddBool(siid, ciid, g_switchIntState, buf);

@@ -34,7 +34,6 @@
 
 static SemaphoreHandle_t uart_mutex = NULL;
 static QueueHandle_t uart_event_queue = NULL;
-static bool uart_initialized = false;
 
 /**
  * @brief       TODO: 按产品实际信息修改配置
@@ -104,16 +103,24 @@ int32_t HIMCUL_PROD_TransInit(void)
 
     uart_event_queue = xQueueCreate(UART_EVENT_QUEUE_SIZE, sizeof(uart_event_t));
     if (uart_event_queue == NULL) {
+        vSemaphoreDelete(uart_mutex);
+        uart_mutex = NULL;
         return HIMCUL_ERROR;
     }
 
-    uart_driver_install(UART_NUM, UART_BUF_SIZE * 2, UART_BUF_SIZE * 2, 
-                       UART_EVENT_QUEUE_SIZE, &uart_event_queue, 0);
+    esp_err_t ret = uart_driver_install(UART_NUM, UART_BUF_SIZE * 2, UART_BUF_SIZE * 2, 
+                                        UART_EVENT_QUEUE_SIZE, &uart_event_queue, 0);
+    if (ret != ESP_OK) {
+        vQueueDelete(uart_event_queue);
+        uart_event_queue = NULL;
+        vSemaphoreDelete(uart_mutex);
+        uart_mutex = NULL;
+        return HIMCUL_ERROR;
+    }
 
     uart_param_config(UART_NUM, &uart_config);
     uart_set_pin(UART_NUM, UART_TX_PIN, UART_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 
-    uart_initialized = true;
     return HIMCUL_OK;
 }
 

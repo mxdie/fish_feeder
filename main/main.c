@@ -52,6 +52,15 @@ void app_main(void)
 
     printf("Minimum free heap size: %" PRIu32 " bytes\n", esp_get_minimum_free_heap_size());
 
-    servo_180_init();
-    xTaskCreate(himcul_task, "himcul_task", 4096, NULL, 5, NULL);
+    esp_err_t ret = servo_180_init();
+    if (ret != ESP_OK) {
+        printf("servo_180_init failed\n");
+        return;
+    }
+
+    BaseType_t task_ret = xTaskCreate(himcul_task, "himcul_task", 4096, NULL, 5, NULL);
+    if (task_ret != pdPASS) {
+        printf("xTaskCreate failed\n");
+        return;
+    }
 }

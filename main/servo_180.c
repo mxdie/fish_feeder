@@ -1,6 +1,7 @@
 #include "servo_180.h"
 #include "driver/ledc.h"
 #include "esp_err.h"
+#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
 #define SERVO_GPIO_PIN 2
