@@ -87,7 +87,7 @@
 
 /* 是否使能靠近发现 */
 #ifndef HIMCU_CONF_NEAR_DISCOVERY_ENABLE
-#define HIMCU_CONF_NEAR_DISCOVERY_ENABLE            1
+#define HIMCU_CONF_NEAR_DISCOVERY_ENABLE            0
 #endif
 
 /* 靠近发现功率 */
@@ -122,7 +122,7 @@
 
 /* 传输数据帧最大大小，会申请2倍的RAM空间用来做收发缓冲区 */
 #ifndef HIMCUL_CONF_TRANS_FRAME_MAX_SIZE
-#define HIMCUL_CONF_TRANS_FRAME_MAX_SIZE            512
+#define HIMCUL_CONF_TRANS_FRAME_MAX_SIZE            1024
 #endif
 
 #endif /* HIMCU_LITE_CONFIG_H */

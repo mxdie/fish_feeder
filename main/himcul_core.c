@@ -854,7 +854,7 @@ static int32_t TransportSendFrame(HIMCUL_Context *ctx, uint8_t cmd, uint16_t id,
     }
 
     HIMCUL_TransFrame frame = {HIMCU_TRANS_FRAME_MAGIC_BIG_END, HIMCU_TRANS_FRAME_VER, cmd, id,
-        sendLen, NULL, checksum};
+        sendLen, NULL, checksum, 0};
 	HIMCUL_LOGN_FRAME(&frame, "send frame ok");
     TransMultiDataFrameDump(&frame, items, size);
 

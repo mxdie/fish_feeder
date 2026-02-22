@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2010-2022 Espressif Systems (Shanghai) CO LTD
- *
- * SPDX-License-Identifier: CC0-1.0
- */
-
 #include <stdio.h>
 #include <inttypes.h>
 #include "sdkconfig.h"
@@ -12,11 +6,27 @@
 #include "esp_chip_info.h"
 #include "esp_flash.h"
 #include "esp_system.h"
+#include "himcul_framework.h"
+#include "servo_180.h"
+
+void himcul_task(void *pvParameters)
+{
+    int32_t ret = HIMCUL_FWK_Init();
+    if (ret != 0) {
+        printf("HIMCUL_FWK_Init failed, ret=%" PRId32 "\n", ret);
+        vTaskDelete(NULL);
+        return;
+    }
+
+    while (1) {
+        int64_t current_time_ms = (int64_t)xTaskGetTickCount() * portTICK_PERIOD_MS;
+        HIMCUL_FWK_Loop(current_time_ms);
+        vTaskDelay(pdMS_TO_TICKS(50));
+    }
+}
 
 void app_main(void)
 {
-    printf("Hello world!\n");
-
     /* Print chip information */
     esp_chip_info_t chip_info;
     uint32_t flash_size;
@@ -42,11 +52,6 @@ void app_main(void)
 
     printf("Minimum free heap size: %" PRIu32 " bytes\n", esp_get_minimum_free_heap_size());
 
-    for (int i = 10; i >= 0; i--) {
-        printf("Restarting in %d seconds...\n", i);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
-    printf("Restarting now.\n");
-    fflush(stdout);
-    esp_restart();
+    servo_180_init();
+    xTaskCreate(himcul_task, "himcul_task", 4096, NULL, 5, NULL);
 }

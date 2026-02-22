@@ -15,23 +15,42 @@
 #include "himcul_product.h"
 #include <stdlib.h>
 #include <string.h>
+#if HIMCUL_CONF_LOG_SUPPORT
+#include <stdio.h>
+#endif
 #include "himcul_profile.h"
+#include "himcul_ota.h"
+#include "himcul_framework.h"
+#include "driver/uart.h"
+#include "freertos/semphr.h"
+#include "freertos/queue.h"
+
+#define UART_NUM UART_NUM_1
+#define UART_TX_PIN 4
+#define UART_RX_PIN 5
+#define UART_BAUD_RATE 115200
+#define UART_BUF_SIZE 256
+#define UART_EVENT_QUEUE_SIZE 20
+
+static SemaphoreHandle_t uart_mutex = NULL;
+static QueueHandle_t uart_event_queue = NULL;
+static bool uart_initialized = false;
 
 /**
  * @brief       TODO: 按产品实际信息修改配置
  *
  */
 static const uint8_t g_version[4]   = {1, 0, 0, 0};
-static const char *g_prodId         = "9LFJ";
-static const char *g_model          = "test3";
-static const char *g_devTypeId      = "046";
-static const char *g_devTypeName    = "TableLamp";
-static const char *g_manuId         = "002";
-static const char *g_manuName       = "HUAWEI";
+static const char *g_prodId         = "2GVI";
+static const char *g_model          = "SH-WDQ-LGT101";
+static const char *g_devTypeId      = "005";
+static const char *g_devTypeName    = "SmartSwitch";
+static const char *g_manuId         = "0f6";
+static const char *g_manuName       = "DNAKE";
 #if HIMCUL_CONF_CUSTOM_PROTOCOL_ENABLE
 static const uint8_t g_protType     = HIMCUL_CONF_CUSTOM_PROTOCOL_TYPE;
 #endif
-static const uint8_t g_netcfgMode   = HIMCUL_NETCFG_TYPE_BLE_SLE_DUL_CONN;
+static const uint8_t g_netcfgMode   = HIMCUL_NETCFG_TYPE_SOFTAP;
 #if HIMCU_CONF_NEAR_DISCOVERY_ENABLE
 static const uint8_t g_nearPower    = HIMCU_CONF_NEAR_DISCOVERY_POWER;
 #endif
@@ -69,6 +88,32 @@ void HIMCUL_PROD_LogOutput(uint8_t level, const char *tag, const char *fmt, va_l
 
 int32_t HIMCUL_PROD_TransInit(void)
 {
+    uart_config_t uart_config = {
+        .baud_rate = UART_BAUD_RATE,
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .source_clk = UART_SCLK_DEFAULT,
+    };
+
+    uart_mutex = xSemaphoreCreateMutex();
+    if (uart_mutex == NULL) {
+        return HIMCUL_ERROR;
+    }
+
+    uart_event_queue = xQueueCreate(UART_EVENT_QUEUE_SIZE, sizeof(uart_event_t));
+    if (uart_event_queue == NULL) {
+        return HIMCUL_ERROR;
+    }
+
+    uart_driver_install(UART_NUM, UART_BUF_SIZE * 2, UART_BUF_SIZE * 2, 
+                       UART_EVENT_QUEUE_SIZE, &uart_event_queue, 0);
+
+    uart_param_config(UART_NUM, &uart_config);
+    uart_set_pin(UART_NUM, UART_TX_PIN, UART_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+
+    uart_initialized = true;
     return HIMCUL_OK;
 }
 
@@ -76,7 +121,15 @@ int32_t HIMCUL_PROD_TransInit(void)
 int32_t HIMCUL_PROD_TransRecvHandler(uint8_t *buf, uint32_t len, uint32_t timeoutMs)
 {
     HIMCUL_CHECK_RETURN_LOGW(buf != NULL && len != 0, HIMCUL_ERR_PARAM_INVALID, "param invalid");
-    /* TODO: 实现串口接收，返回实际接收长度，超时时间为timeoutMs，如果无法阻塞需喂狗 */
+    
+    uart_event_t event;
+    if (xQueueReceive(uart_event_queue, (void *)&event, pdMS_TO_TICKS(timeoutMs))) {
+        if (event.type == UART_DATA) {
+            int32_t recv_len = uart_read_bytes(UART_NUM, buf, len, 0);
+            return recv_len;
+        }
+    }
+    
     return 0;
 }
 #endif
@@ -84,8 +137,18 @@ int32_t HIMCUL_PROD_TransRecvHandler(uint8_t *buf, uint32_t len, uint32_t timeou
 int32_t HIMCUL_PROD_TransSendHandler(const uint8_t *data, uint32_t len)
 {
     HIMCUL_CHECK_RETURN_LOGW(data != NULL && len != 0, HIMCUL_ERR_PARAM_INVALID, "param invalid");
-    /* TODO: 实现串口发送，返回实际发送长度 */
-    return len;
+    
+    if (uart_mutex != NULL) {
+        xSemaphoreTake(uart_mutex, portMAX_DELAY);
+    }
+    
+    int32_t sent_len = uart_write_bytes(UART_NUM, (const char *)data, len);
+    
+    if (uart_mutex != NULL) {
+        xSemaphoreGive(uart_mutex);
+    }
+    
+    return sent_len;
 }
 
 void HIMCUL_PROD_EventProcess(uint32_t event)
@@ -136,28 +199,6 @@ static const ProfileCharItem g_charSwitch[] = {
     }
 };
 
-static const ProfileCharItem g_charBrightness[] = {
-    {
-        .cid = "brightness",
-        .ct = "int",
-        .ciid = 0,
-        .putFunc = HIMCUL_PRF_BrightnessBrightnessPutHandler,
-        .getFunc = HIMCUL_PRF_BrightnessBrightnessGetHandler,
-        .rptFunc = HIMCUL_PRF_BrightnessBrightnessRptHandler,
-    }
-};
-
-static const ProfileCharItem g_charCct[] = {
-    {
-        .cid = "colorTemperature",
-        .ct = "int",
-        .ciid = 0,
-        .putFunc = HIMCUL_PRF_CctColorTemperaturePutHandler,
-        .getFunc = HIMCUL_PRF_CctColorTemperatureGetHandler,
-        .rptFunc = HIMCUL_PRF_CctColorTemperatureRptHandler,
-    }
-};
-
 /**
  * @brief       TODO: 产品Profile服务信息
  *
@@ -169,18 +210,6 @@ static const ProfileSvcItem g_profile[] = {
         .siid = 0,
         .charNum = HIMCUL_ARRAY_SIZE(g_charSwitch),
         .chars = g_charSwitch,
-    },{
-        .sid = "brightness",
-        .st = "brightness",
-        .siid = 1,
-        .charNum = HIMCUL_ARRAY_SIZE(g_charBrightness),
-        .chars = g_charBrightness,
-    },{
-        .sid = "cct",
-        .st = "cct",
-        .siid = 2,
-        .charNum = HIMCUL_ARRAY_SIZE(g_charCct),
-        .chars = g_charCct,
     }
 };
 
