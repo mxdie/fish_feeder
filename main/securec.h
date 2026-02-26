@@ -7,5 +7,5 @@
 #define memmove_s(dest, destsz, src, count) (memmove((dest), (src), (count)), 0)
 #define strncpy_s(dest, destsz, src, count) (strncpy((dest), (src), (count)), 0)
 #define strcpy_s(dest, destsz, src) (strcpy((dest), (src)), 0)
-#define sprintf_s(dest, destsz, fmt, ...) (sprintf((dest), (fmt), __VA_ARGS__), 0)
-#define vsprintf_s(dest, destsz, fmt, args) (vsprintf((dest), (fmt), (args)), 1)
+#define sprintf_s(dest, destsz, fmt, ...) sprintf((dest), (fmt), __VA_ARGS__)
+#define vsprintf_s(dest, destsz, fmt, args) vsprintf((dest), (fmt), (args))

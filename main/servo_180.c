@@ -74,7 +74,7 @@ esp_err_t servo_180_set_angle(int angle)
 
     if (angle < 0) angle = 0;
     if (angle > 180) angle = 180;
-
+    printf("set angle, %u=>%u\n", current_angle, angle);
     uint32_t duty = angle_to_duty(angle);
     esp_err_t ret = ledc_set_duty(SERVO_LEDC_MODE, SERVO_LEDC_CHANNEL, duty);
     if (ret == ESP_OK) {

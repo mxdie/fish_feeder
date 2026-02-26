@@ -497,7 +497,7 @@ static bool ReportProfileSvcHandler(uint8_t type, DEMO_ReportItem *curItem)
     ClearSendBuffer();
 
     int32_t ret;
-    if (curItem->ctx.profile.num == 0) {
+    if (curItem->ctx.profile.num == 0xFF) {
         /* 为0时全量上报 */
         ret = HIMCUL_PROD_BaseProfileReportAllHandler(&g_sendBuffer);
     } else {
